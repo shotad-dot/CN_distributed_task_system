@@ -1,224 +1,77 @@
-# Distributed Task Notification and Worker System
+# Distributed Task Notification and Worker System (DST)
 
-A Python-based distributed task-processing system that enables a central task manager to communicate with remote worker nodes over TCP sockets. The project uses Mininet to simulate a network of distributed hosts and Flask to provide a web-based interface for submitting tasks and viewing results.
+A Mininet-based distributed job-processing demonstration. The browser submits a sample job to a Flask manager running in Mininet host `h1`. The manager partitions the job, schedules chunks across dynamically created Mininet worker hosts, communicates with their TCP servers, and aggregates the results.
 
-## Overview
+## Implemented
 
-The system demonstrates how tasks can be submitted through a central manager, transmitted over a network to worker nodes, processed remotely, and returned to the client.
+- Dynamic creation and deletion of real Mininet hosts from the dashboard.
+- One TCP worker process per host, listening on port 5000.
+- TCP JSON-line request/response protocol between manager and workers.
+- Workload-aware scheduling using outstanding work, capacity, and EWMA response time.
+- Parallel chunk dispatch and result aggregation for matrix multiplication, sum, prime discovery, and sorting.
+- Basic failure recovery: if a worker connection/task fails, the manager retries that subtask on other active workers before marking it failed.
+- Dashboard with worker status, task traces, results, and performance counters.
+- Worker startup is checked using the worker process's explicit listening message; the launcher avoids blocking `host.cmd()` readiness probes.
 
-The current implementation focuses on establishing network connectivity, TCP-based communication, remote task execution, and a web-based dashboard.
+## Not implemented in this build
 
-## Architecture
+The switch is Open vSwitch with OpenFlow 1.3 support and is currently placed in **standalone learning-switch mode** so the demonstration can forward traffic without an external controller. This build does **not** include a running Ryu controller or SDN-controlled workload routing. Do not present it as a completed Ryu/SDN implementation.
 
-```text
-             User
-              |
-              v
-       Web Dashboard
-          (Flask)
-              |
-              | HTTP
-              v
-       Task Manager (h1)
-              |
-              | TCP Socket
-              v
-        Worker Node (h2)
-              |
-              | Executes Task
-              v
-        Computed Result
-              |
-              v
-       Task Manager (h1)
-              |
-              v
-        Web Dashboard
-```
+The retry mechanism is a basic application-level retry: it tries other active workers when a TCP task attempt fails. It is not a production-grade fault-tolerance protocol; a worker crash after completing work but before returning its response can cause the same pure computation to be executed again.
 
-## Features
+The `src/operations.py` module is included as a scalar-arithmetic compatibility helper. The distributed sample jobs use the chunk-based `run_task()` implementation in `src/worker.py`.
 
-- **Network Simulation:** Uses Mininet to create a virtual network topology.
-- **TCP Communication:** Establishes communication between the task manager and worker nodes using TCP sockets.
-- **Centralized Task Manager:** Receives tasks from the web interface and forwards them to workers.
-- **Remote Task Execution:** Worker nodes independently execute assigned computational tasks.
-- **Web Dashboard:** Provides an interactive Flask-based interface for submitting tasks.
-- **Result Delivery:** Returns computed results from workers to the dashboard.
-- **Multiple Operations:** Supports arithmetic and mathematical operations.
+## Requirements
 
-### Supported Operations
-
-| Operation | Description |
-|---|---|
-| ADD | Addition |
-| SUBTRACT | Subtraction |
-| MULTIPLY | Multiplication |
-| DIVIDE | Division |
-| MODULO | Modulo |
-| POWER | Exponentiation |
-| FLOOR_DIVIDE | Floor division |
-| MAX | Maximum value |
-| MIN | Minimum value |
-| GCD | Greatest common divisor |
-| LCM | Least common multiple |
-
-## Technologies Used
-
-- **Python** – Core application logic
-- **TCP Sockets** – Network communication
-- **Mininet** – Network emulation
-- **Open vSwitch** – Virtual network switching
-- **Flask** – Backend web framework
-- **HTML, CSS and JavaScript** – Dashboard interface
-
-## Network Topology
-
-The project uses a Mininet topology consisting of:
-
-| Node | IP Address | Role |
-|---|---|---|
-| h1 | 10.0.0.1 | Task Manager |
-| h2 | 10.0.0.2 | Worker 1 |
-| h3 | 10.0.0.3 | Worker 2 |
-| h4 | 10.0.0.4 | Worker 3 |
-| s1 | — | Open vSwitch |
-
-The initial implementation uses one active worker (h2) for task execution. The remaining worker nodes are part of the network topology.
-
-## Project Structure
-
-```text
-distributed-task-notification-system/
-│
-├── src/
-│   ├── manager.py
-│   └── worker.py
-│
-├── topology/
-│   └── topology.py
-│
-├── templates/
-│   └── index.html
-│
-├── static/
-│
-├── logs/
-│
-├── results/
-│
-└── README.md
-```
-
-## Setup and Execution
-
-### Prerequisites
-
-- Linux (Ubuntu/Xubuntu recommended)
-- Python 3
-- Mininet
-- Open vSwitch
-- Flask
-
-### 1. Clone the Repository
+Ubuntu/Xubuntu with Mininet and Open vSwitch installed, Python 3, and `python3-venv`.
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/distributed-task-notification-system.git
-
-cd distributed-task-notification-system
-```
-
-### 2. Set Up the Python Environment
-
-```bash
+sudo apt update
+sudo apt install mininet openvswitch-switch python3-venv python3-pip
+cd ~/DST-Final/dst
 python3 -m venv venv
-
-source venv/bin/activate
-
-pip install flask
+./venv/bin/pip install -r requirements.txt
 ```
 
-### 3. Start the Mininet Topology
+If `venv` already exists, do not recreate it unnecessarily; just install requirements with `./venv/bin/pip install -r requirements.txt`.
+
+## Run
+
+From the project directory:
 
 ```bash
 sudo mn -c
-
-sudo mn --custom topology/topology.py --topo worker --controller none
+sudo python3 scripts/run_network.py
 ```
 
-Inside the Mininet CLI:
+Open the desktop browser at **http://10.0.0.1:8000**.
 
-```bash
-sh ovs-vsctl set-fail-mode s1 standalone
+1. Click **Create worker** one or more times.
+2. Wait for each worker to appear as ACTIVE.
+3. Choose a sample job.
+4. Expand the job trace to see subtask assignments.
+5. Remove idle workers when finished.
+6. Press Ctrl+C in the launcher terminal to stop the network.
 
-pingall
-```
+## Network layout
 
-### 4. Start the Worker Node
+- Manager host: `h1`, `10.0.0.1`, Flask port `8000`.
+- OVS switch: `s1`, OpenFlow 1.3 protocol configured.
+- Desktop OVS internal interface: `host0`, `10.0.0.254`.
+- Worker management API: `10.0.0.254:8765` in the root namespace.
+- Workers: `10.0.0.2`, `10.0.0.3`, etc.; TCP port `5000`.
 
-Open a terminal for h2:
+## Architecture
 
-```bash
-xterm h2
-```
+`Browser → Flask manager (h1) → partitioner/scheduler → TCP worker hosts → partial results → aggregation → dashboard`
 
-Inside the h2 terminal:
+`Flask manager → root-side Mininet orchestrator → net.addHost()/net.addLink()/OVS attach`
 
-```bash
-cd ~/distributed-task-system
+The root-side orchestrator owns the Mininet object because a Flask process inside `h1` cannot directly mutate the Mininet object created by the launcher in the root namespace.
 
-source venv/bin/activate
+## Troubleshooting
 
-python src/worker.py
-```
-
-### 5. Start the Task Manager
-
-Open another terminal for h1:
-
-```bash
-xterm h1
-```
-
-Inside the h1 terminal:
-
-```bash
-cd ~/distributed-task-system
-
-source venv/bin/activate
-
-python src/manager.py
-```
-
-### 6. Access the Dashboard
-
-Open the dashboard in your desktop browser:
-
-```text
-http://10.0.0.1:8000
-```
-
-Submit a task using the operation selector and input fields. The manager forwards the task to the worker, which processes it and returns the result.
-
-> Note: Desktop-to-Mininet connectivity may require an additional virtual interface configuration, depending on the host environment.
-
-## Future Enhancements
-
-The next development phase aims to introduce more advanced distributed-system capabilities:
-
-- Dynamic worker registration and management
-- Multi-worker task distribution
-- Workload-aware task scheduling
-- Worker workload monitoring
-- Task timeout management
-- Worker failure detection
-- Automatic task redistribution
-- SDN-based network management and traffic control
-- Scheduling efficiency evaluation
-
-## Project Objective
-
-The primary objective is to understand and implement the fundamentals of distributed task processing, network communication, and worker-based computation, while progressively exploring intelligent scheduling and Software-Defined Networking (SDN).
-
----
-
-**Developed as an academic Computer Networks project.**
+- If startup reports an existing Mininet/OVS process, stop the previous launcher and run `sudo mn -c` once.
+- If the dashboard does not load, check that the launcher printed `DST NETWORK STARTED` and the dashboard address.
+- If worker creation fails, read the exact `FAILED creating wN` message in the launcher terminal. The API returns the underlying exception as JSON.
+- This project is intended for a trusted local lab network; the management API has no authentication.
