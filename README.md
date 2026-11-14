@@ -75,3 +75,9 @@ The root-side orchestrator owns the Mininet object because a Flask process insid
 - If the dashboard does not load, check that the launcher printed `DST NETWORK STARTED` and the dashboard address.
 - If worker creation fails, read the exact `FAILED creating wN` message in the launcher terminal. The API returns the underlying exception as JSON.
 - This project is intended for a trusted local lab network; the management API has no authentication.
+
+## CONTRIBUTION OF MEMBERS:
+
+- Mininet setup,Topology,TCP Socket establishment,Dashboard-Harrshit
+- Worker node creation,task distribution,EWMA Algorithm-Hannah
+-	Manager setup,timeout,task redistribution-Harshita
