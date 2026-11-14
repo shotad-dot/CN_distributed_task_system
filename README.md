@@ -78,6 +78,6 @@ The root-side orchestrator owns the Mininet object because a Flask process insid
 
 ## CONTRIBUTION OF MEMBERS:
 
-- Mininet setup,Topology,TCP Socket establishment,Dashboard-Harrshit
-- Worker node creation,task distribution,EWMA Algorithm-Hannah
--	Manager setup,timeout,task redistribution-Harshita
+- Harrshit M Melwani : Mininet setup , Topology , TCP Socket establishment , Dashboard
+- Hannah Kristen Koilraj : Worker node creation , task distribution , EWMA Algorithm
+-	Harshita Goyal : Manager setup , timeout,task redistribution
